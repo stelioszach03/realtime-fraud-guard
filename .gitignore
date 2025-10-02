@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# VSCode
+.vscode/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Docker
+*.log
+*.pid
+.docker/
+dist/
+build/
+
+# Go
+bin/
+pkg/
+go.sum
+
+# Data/Artifacts
+models/
+data/
+notebooks/
+tmp/
+
+# Prometheus multi-proc dir
+prometheus_multiproc_dir/
+

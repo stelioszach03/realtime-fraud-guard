@@ -1,0 +1,18 @@
+{
+  "title": "Overview",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 2,
+  "panels": [
+    {"type": "stat", "title": "Events/min", "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}, "targets": [{"expr": "sum(rate(events_total[1m]))", "legendFormat": "events/min"}]},
+    {"type": "stat", "title": "Alerts/min", "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}, "targets": [{"expr": "sum(rate(alerts_total[1m]))", "legendFormat": "alerts/min"}]},
+    {"type": "stat", "title": "Alert Rate %", "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}, "targets": [{"expr": "100 * sum(rate(alerts_total[5m])) / clamp_min(sum(rate(events_total[5m])), 1)", "legendFormat": "alert%"}]},
+    {"type": "gauge", "title": "PR-AUC", "gridPos": {"h": 4, "w": 3, "x": 18, "y": 0}, "targets": [{"expr": "pr_auc"}]},
+    {"type": "gauge", "title": "Precision@100", "gridPos": {"h": 4, "w": 3, "x": 21, "y": 0}, "targets": [{"expr": "precision_at_k{k=\"100\"}"}]},
+    {"type": "gauge", "title": "Precision@500", "gridPos": {"h": 4, "w": 3, "x": 24, "y": 0}, "targets": [{"expr": "precision_at_k{k=\"500\"}"}]},
+    {"type": "timeseries", "title": "Latency p95/p99", "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4}, "targets": [
+      {"expr": "histogram_quantile(0.95, sum(rate(inference_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95"},
+      {"expr": "histogram_quantile(0.99, sum(rate(inference_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p99"}
+    ]}
+  ]
+}

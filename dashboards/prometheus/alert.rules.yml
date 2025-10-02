@@ -1,0 +1,21 @@
+groups:
+  - name: aegis-alerts
+    rules:
+      - alert: HighAlertRate
+        expr: sum(rate(alerts_total[5m])) / clamp_min(sum(rate(events_total[5m])), 1) > 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: High alert rate
+          description: Alerts to events ratio above 15% for 10m.
+
+      - alert: HighP95Latency
+        expr: histogram_quantile(0.95, sum(rate(inference_latency_seconds_bucket[5m])) by (le)) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: High p95 latency
+          description: p95 inference latency above 500ms for 10m.
+

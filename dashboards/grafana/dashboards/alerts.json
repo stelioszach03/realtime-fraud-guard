@@ -1,0 +1,12 @@
+{
+  "title": "Alerts",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {"type": "timeseries", "title": "Alerts by Topic (rate)", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"expr": "sum by (topic) (rate(alerts_total[5m]))"}]},
+    {"type": "stat", "title": "Total Alerts (5m)", "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}, "targets": [{"expr": "sum(increase(alerts_total[5m]))"}]},
+    {"type": "text", "title": "Recent Alerts (Loki placeholder)", "gridPos": {"h": 12, "w": 24, "x": 0, "y": 8}, "options": {"content": "Integration with Loki to list recent alerts and rationales will appear here. For now, check Kafka topic alerts and Redis stream 'alerts'.", "mode": "markdown"}}
+  ]
+}
+

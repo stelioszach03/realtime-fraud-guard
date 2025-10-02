@@ -1,0 +1,6 @@
+{"event_type": "payment", "event": {"amount": 42.5, "currency": "USD", "user_id": "u_1", "device_id": "d_1", "merchant": "ACME-MARKET", "country": "US"}, "label": 0}
+{"event_type": "payment", "event": {"amount": 1800.0, "currency": "USD", "user_id": "u_2", "device_id": "d_7", "merchant": "GLOBAL-TRAVEL", "country": "GB"}, "label": 1}
+{"event_type": "sms", "event": {"phone_number": "+12025550123", "text": "Urgent! Verify your bank password at http://phish"}, "label": 1}
+{"event_type": "email", "event": {"sender": "security@bank-secure.com", "recipient": "user@example.com", "subject": "Verify your password immediately", "body": "Please click https://phish.tld to secure your account", "sender_domain": "bank-secure.com"}, "label": 1}
+{"event_type": "email", "event": {"sender": "newsletter@news.com", "recipient": "user@example.com", "subject": "Welcome", "body": "Thanks for joining!", "sender_domain": "news.com"}, "label": 0}
+

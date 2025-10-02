@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "bash", "-lc", "echo ruok | nc -w 2 localhost 2181 | grep imok || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: ["CMD", "bash", "-lc", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aegis-fraud-guard:latest
+    env_file: .env
+    command: >
+      python -m services.inference_api.run_combined
+    ports:
+      - "8000:8000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      topics:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "bash", "-lc", "curl -fsS http://localhost:8000/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  consumer:
+    image: aegis-fraud-guard:latest
+    env_file: .env
+    command: python -m services.inference_api.kafka_consumer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      topics:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+
+  generator:
+    image: aegis-fraud-guard:latest
+    env_file: .env
+    command: python -m services.generator.cli --topic payments --rate 50 --max 500
+    depends_on:
+      kafka:
+        condition: service_healthy
+      topics:
+        condition: service_completed_successfully
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./dashboards/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-storage:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./dashboards/grafana:/etc/grafana/provisioning:ro
+      - grafana-storage:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  topics:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      - KAFKA_BROKER=PLAINTEXT://kafka:9092
+    entrypoint: ["bash", "-lc", "scripts/bootstrap_topics.sh"]
+
+volumes:
+  grafana-storage:
+  prometheus-storage:
+
+networks:
+  default:
+    name: aegis-net

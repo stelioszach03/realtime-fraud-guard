@@ -1,0 +1,1 @@
+{"score":0.8918722062166436,"is_alert":true,"threshold":0.85,"reasons":["amount","merchant_risk","txn_count_1m_user"],"latency_ms":1.2028470009681769}

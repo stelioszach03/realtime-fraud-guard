@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package fraudguard;
+
+// Matches REST scoring semantics
+message ScoreRequest {
+  string source = 1;           // payments | sms | email
+  string payload_json = 2;     // raw JSON payload
+}
+
+message ScoreResponse {
+  double score = 1;            // 0..1 final (model+rules)
+  bool is_alert = 2;           // score >= threshold
+  double threshold = 3;        // alert threshold used
+  repeated string reasons = 4; // top explanations
+  double latency_ms = 5;       // request-scoring latency
+}
+
+service FraudScoring {
+  rpc Score (ScoreRequest) returns (ScoreResponse) {}
+}

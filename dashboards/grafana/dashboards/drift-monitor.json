@@ -1,0 +1,11 @@
+{
+  "title": "Drift Monitor",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 2,
+  "panels": [
+    {"type": "gauge", "title": "Drift Score", "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}, "targets": [{"expr": "drift_score"}]},
+    {"type": "timeseries", "title": "PSI per feature", "gridPos": {"h": 10, "w": 12, "x": 6, "y": 0}, "targets": [{"expr": "feature_psi"}]},
+    {"type": "table", "title": "Top Drifting Features", "gridPos": {"h": 10, "w": 6, "x": 18, "y": 0}, "targets": [{"expr": "topk(10, feature_psi)"}]}
+  ]
+}
