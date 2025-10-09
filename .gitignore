@@ -36,7 +36,15 @@ models/
 data/
 notebooks/
 tmp/
+artifacts/
+
+# Environment files
+.env
+*.env
+
+# IDE
+.idea/
+.ipynb_checkpoints/
 
 # Prometheus multi-proc dir
 prometheus_multiproc_dir/
-
