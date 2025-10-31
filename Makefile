@@ -13,7 +13,7 @@ dev-consumer:
 	$(PYTHON) -m services.inference_api.kafka_consumer
 
 grpc:
-	$(PYTHON) inference_api/grpc_server.py
+	$(PYTHON) services/inference_api/grpc_server.py
 
 proto:
 	$(PYTHON) -m grpc_tools.protoc -I protos \
