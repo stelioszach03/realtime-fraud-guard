@@ -1,0 +1,1346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Realtime Fraud Guard · Streaming Cross-Channel Scoring</title>
+<meta name="description" content="Streaming fraud-detection platform across payments, SMS and email. Kafka + Redis + FastAPI + gRPC, sub-50ms p95 scoring, rule DSL fused with ML features, Prometheus + Grafana observability. Built by Stelios Zacharioudakis." />
+<meta name="theme-color" content="#0a0e1b" />
+<meta property="og:title" content="Realtime Fraud Guard" />
+<meta property="og:description" content="Streaming cross-channel fraud detection — Kafka + Redis + ML + rules + gRPC/REST, 50ms p95." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;700;800&family=Manrope:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+:root {
+  --bg:           #0a0e1b;
+  --bg-deep:      #07091a;
+  --surface:      #11172b;
+  --surface-hi:   #161e36;
+  --border:       #1f2842;
+  --border-hi:    #2a3560;
+  --ink:          #e8ebf5;
+  --ink-dim:      #c5cadf;
+  --muted:        #8a94b3;
+  --muted-deep:   #5a6284;
+
+  --green:        #4ade80;
+  --green-deep:   #15803d;
+  --red:          #ef4444;
+  --red-deep:     #991b1b;
+  --amber:        #fbbf24;
+  --amber-deep:   #92400e;
+  --cyan:         #22d3ee;
+  --cyan-deep:    #0e7490;
+  --violet:       #a78bfa;
+
+  --display: "Unbounded", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --sans:    "Manrope", -apple-system, system-ui, sans-serif;
+  --mono:    "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --shell:   1240px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { background: var(--bg-deep); scroll-behavior: smooth; }
+
+body {
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  background:
+    radial-gradient(1200px 800px at 90% -10%, rgba(239, 68, 68, 0.06), transparent 60%),
+    radial-gradient(1000px 700px at -10% 50%, rgba(34, 211, 238, 0.05), transparent 60%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Scan lines overlay for SOC feel */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(34, 211, 238, 0.018) 0px,
+      rgba(34, 211, 238, 0.018) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: screen;
+}
+
+.shell { max-width: var(--shell); margin: 0 auto; padding: 0 28px; position: relative; z-index: 2; }
+
+a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid rgba(34, 211, 238, 0.3); transition: color 0.15s, border-color 0.15s; }
+a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+a.no-bb { border-bottom: none; }
+
+/* ═══════════════════ NAV ═══════════════════ */
+
+nav.top {
+  position: sticky; top: 0; z-index: 40;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10, 14, 27, 0.86);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+nav.top .inner {
+  max-width: var(--shell); margin: 0 auto;
+  padding: 14px 28px;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+}
+.brand { display: flex; align-items: center; gap: 14px; color: var(--ink); border-bottom: none; }
+.brand-glyph {
+  width: 36px; height: 36px; flex-shrink: 0;
+}
+.brand-glyph svg { width: 100%; height: 100%; }
+.brand-text { display: flex; flex-direction: column; }
+.brand-title {
+  font-family: var(--display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1;
+  color: var(--ink);
+}
+.brand-sub {
+  font-family: var(--mono); font-size: 0.58rem;
+  color: var(--muted); letter-spacing: 0.2em;
+  text-transform: uppercase; margin-top: 4px;
+}
+nav.top .links {
+  display: flex; gap: 22px; align-items: center; flex-wrap: wrap;
+}
+nav.top .links a {
+  font-family: var(--mono); font-size: 0.68rem;
+  color: var(--ink-dim); border-bottom: none;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+nav.top .links a:hover { color: var(--cyan); }
+nav.top .links a.cta {
+  padding: 8px 18px;
+  background: var(--red);
+  color: #fff;
+  border-radius: 3px;
+  font-weight: 600;
+}
+nav.top .links a.cta:hover { background: #dc2626; color: #fff; border-bottom: none; }
+@media (max-width: 720px) { nav.top .links a:not(.cta) { display: none; } }
+
+/* live dot indicator */
+.live-dot {
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--green);
+  animation: live-pulse 1.8s ease-in-out infinite;
+  margin-right: 6px;
+}
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6); }
+  50% { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
+}
+
+/* ═══════════════════ HERO ═══════════════════ */
+
+.hero {
+  padding: 90px 0 40px;
+  position: relative;
+}
+
+.eyebrow {
+  display: flex; gap: 10px; align-items: center;
+  margin-bottom: 32px; flex-wrap: wrap;
+}
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-hi);
+  border-radius: 3px;
+  background: var(--surface);
+  font-family: var(--mono); font-size: 0.6rem;
+  color: var(--ink-dim); letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.pill.alert {
+  color: var(--red); border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.05);
+}
+.pill.live {
+  color: var(--green); border-color: rgba(74, 222, 128, 0.4);
+  background: rgba(74, 222, 128, 0.05);
+}
+
+h1.display {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(2.6rem, 5.8vw, 4.8rem);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  margin: 0 0 28px;
+  color: var(--ink);
+  max-width: 22ch;
+  text-wrap: balance;
+}
+h1.display em {
+  font-style: normal;
+  color: var(--red);
+  font-weight: 700;
+  background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+h1.display span.underline-red {
+  position: relative;
+  display: inline-block;
+}
+h1.display span.underline-red::after {
+  content: "";
+  position: absolute;
+  bottom: -4px; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--red), transparent);
+}
+
+.lede {
+  font-size: 1.12rem;
+  line-height: 1.65;
+  color: var(--ink-dim);
+  max-width: 70ch;
+  margin: 0 0 42px;
+}
+.lede code {
+  font-family: var(--mono); font-size: 0.9rem;
+  color: var(--cyan);
+  padding: 0 4px;
+  background: rgba(34, 211, 238, 0.08);
+  border-radius: 3px;
+}
+
+.hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 60px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 13px 24px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
+  border-bottom: none;
+}
+.btn.primary {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+.btn.primary:hover {
+  background: #dc2626; transform: translateY(-1px);
+  box-shadow: 0 8px 24px -6px rgba(239, 68, 68, 0.4);
+  color: #fff;
+}
+.btn.ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--border-hi);
+}
+.btn.ghost:hover { border-color: var(--cyan); color: var(--cyan); border-bottom: none; }
+.btn svg { width: 14px; height: 14px; }
+
+/* ═══════════════════ LIVE FEED DASHBOARD ═══════════════════ */
+
+.dash-card {
+  margin-top: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 20px 60px -18px rgba(0, 0, 0, 0.6);
+}
+.dash-card::before {
+  content: "";
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent 10%, var(--cyan) 50%, transparent 90%);
+  opacity: 0.6;
+}
+.dash-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--border);
+}
+.dash-head-left {
+  display: flex; align-items: center; gap: 14px;
+}
+.dash-title {
+  font-family: var(--mono); font-size: 0.62rem;
+  color: var(--ink-dim); letter-spacing: 0.16em; text-transform: uppercase;
+}
+.dash-dots {
+  display: flex; gap: 6px;
+}
+.dash-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-deep); }
+.dash-dot.r { background: var(--red); opacity: 0.8; }
+.dash-dot.y { background: var(--amber); opacity: 0.8; }
+.dash-dot.g { background: var(--green); opacity: 0.8; }
+.dash-status {
+  font-family: var(--mono); font-size: 0.6rem;
+  color: var(--green); letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.dash-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.dash-cell {
+  padding: 20px 22px;
+  border-right: 1px solid var(--border);
+}
+.dash-cell:last-child { border-right: none; }
+.dash-cell .k {
+  font-family: var(--mono); font-size: 0.58rem;
+  color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.dash-cell .v {
+  font-family: var(--display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  line-height: 1;
+}
+.dash-cell .v.green { color: var(--green); }
+.dash-cell .v.red { color: var(--red); }
+.dash-cell .v.cyan { color: var(--cyan); }
+.dash-cell .vs {
+  font-family: var(--mono); font-size: 0.62rem;
+  color: var(--muted); letter-spacing: 0.04em;
+  margin-top: 6px;
+}
+@media (max-width: 820px) { .dash-grid { grid-template-columns: 1fr 1fr; } }
+
+/* Stream feed */
+.stream {
+  background: var(--bg-deep);
+  padding: 0;
+  max-height: 440px;
+  overflow: auto;
+}
+.stream-head {
+  display: grid;
+  grid-template-columns: 90px 80px 1fr 90px 80px 90px;
+  gap: 16px;
+  padding: 10px 22px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.56rem;
+  color: var(--muted);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: var(--surface);
+}
+.stream-row {
+  display: grid;
+  grid-template-columns: 90px 80px 1fr 90px 80px 90px;
+  gap: 16px;
+  padding: 10px 22px;
+  border-bottom: 1px solid rgba(31, 40, 66, 0.4);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  transition: background 0.15s;
+}
+.stream-row:hover { background: rgba(31, 40, 66, 0.3); }
+.stream-row .t { color: var(--muted); }
+.stream-row .ch {
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  align-self: center;
+  display: inline-block;
+  text-align: center;
+}
+.stream-row .ch.pay    { color: var(--cyan); border: 1px solid var(--cyan-deep); background: rgba(34, 211, 238, 0.06); }
+.stream-row .ch.sms    { color: var(--violet); border: 1px solid #6d28d9; background: rgba(167, 139, 250, 0.06); }
+.stream-row .ch.email  { color: var(--amber); border: 1px solid var(--amber-deep); background: rgba(251, 191, 36, 0.06); }
+.stream-row .reason { color: var(--ink); }
+.stream-row .score {
+  font-weight: 500;
+  text-align: right;
+}
+.stream-row .score.high { color: var(--red); }
+.stream-row .score.mid { color: var(--amber); }
+.stream-row .score.low { color: var(--green); }
+.stream-row .ms { color: var(--muted-deep); text-align: right; }
+.stream-row .verdict {
+  text-align: center;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+.stream-row.alert .verdict { color: var(--red); }
+.stream-row.alert {
+  background: rgba(239, 68, 68, 0.04);
+  border-left: 2px solid var(--red);
+}
+.stream-row:not(.alert) .verdict { color: var(--green); }
+
+@media (max-width: 820px) {
+  .stream-head, .stream-row {
+    grid-template-columns: 60px 60px 1fr 70px;
+    font-size: 0.66rem;
+  }
+  .stream-head .hide-sm, .stream-row .hide-sm { display: none; }
+}
+
+/* ═══════════════════ SECTION BASE ═══════════════════ */
+
+section.block {
+  padding: 100px 0 60px;
+  border-top: 1px solid var(--border);
+}
+section.block:first-of-type { border-top: none; padding-top: 60px; }
+
+.block-head {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 48px;
+  margin-bottom: 56px;
+  align-items: start;
+}
+.block-num {
+  font-family: var(--mono); font-size: 0.6rem;
+  color: var(--red); letter-spacing: 0.22em; text-transform: uppercase;
+}
+.block-num::before {
+  content: "";
+  display: inline-block;
+  width: 28px; height: 1px;
+  background: var(--red);
+  vertical-align: middle;
+  margin-right: 12px;
+}
+.block-title {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(2rem, 4vw, 3.1rem);
+  line-height: 1.08;
+  letter-spacing: -0.018em;
+  color: var(--ink);
+  margin: 0 0 14px;
+  max-width: 22ch;
+  text-wrap: balance;
+}
+.block-title em { color: var(--red); font-style: normal; font-weight: 700; }
+.block-lede {
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--ink-dim);
+  max-width: 62ch;
+  margin: 0;
+}
+.block-lede code {
+  font-family: var(--mono); font-size: 0.85rem;
+  color: var(--cyan); background: rgba(34, 211, 238, 0.08);
+  padding: 0 5px; border-radius: 3px;
+}
+.block-lede strong { color: var(--ink); }
+@media (max-width: 800px) { .block-head { grid-template-columns: 1fr; gap: 16px; } }
+
+/* ═══════════════════ CHANNELS GRID ═══════════════════ */
+
+.channels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.channel {
+  background: var(--surface);
+  padding: 32px 30px;
+  display: flex; flex-direction: column; gap: 16px;
+  transition: background 0.2s;
+}
+.channel:hover { background: var(--surface-hi); }
+
+.channel-tag {
+  font-family: var(--mono); font-size: 0.58rem;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 3px;
+  align-self: flex-start;
+  border: 1px solid currentColor;
+}
+.channel-tag.pay { color: var(--cyan); background: rgba(34, 211, 238, 0.06); }
+.channel-tag.sms { color: var(--violet); background: rgba(167, 139, 250, 0.06); }
+.channel-tag.email { color: var(--amber); background: rgba(251, 191, 36, 0.06); }
+
+.channel-title {
+  font-family: var(--display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  line-height: 1.1;
+}
+.channel-lede {
+  font-size: 0.9rem;
+  color: var(--ink-dim);
+  line-height: 1.55;
+}
+.channel-features {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.channel-features .f-label {
+  font-family: var(--mono); font-size: 0.56rem;
+  color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.channel-features .feat {
+  font-family: var(--mono); font-size: 0.76rem;
+  color: var(--ink); padding: 3px 0;
+  display: flex; gap: 8px; align-items: center;
+}
+.channel-features .feat::before {
+  content: "›";
+  color: var(--red);
+  font-weight: bold;
+}
+
+.channel-sample {
+  margin-top: 10px;
+  padding: 14px 16px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  line-height: 1.55;
+  color: var(--ink-dim);
+  overflow-x: auto;
+  white-space: pre;
+}
+.channel-sample .k { color: var(--muted); }
+.channel-sample .s { color: var(--cyan); }
+.channel-sample .red { color: var(--red); }
+.channel-sample .green { color: var(--green); }
+
+@media (max-width: 1000px) { .channels { grid-template-columns: 1fr; } }
+
+/* ═══════════════════ ARCH DIAGRAM ═══════════════════ */
+
+.arch-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 42px 40px;
+  overflow-x: auto;
+}
+
+.arch-svg-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.arch-caption {
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 22px;
+  letter-spacing: 0.1em;
+}
+
+/* ═══════════════════ METRICS PANEL ═══════════════════ */
+
+.metrics-panel {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mp-cell {
+  background: var(--surface);
+  padding: 34px 30px;
+  display: flex; flex-direction: column; gap: 12px;
+  transition: background 0.15s;
+}
+.mp-cell:hover { background: var(--surface-hi); }
+.mp-cell .k {
+  font-family: var(--mono); font-size: 0.58rem;
+  color: var(--red); letter-spacing: 0.22em; text-transform: uppercase;
+}
+.mp-cell .v {
+  font-family: var(--display);
+  font-size: 2.8rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  line-height: 1;
+}
+.mp-cell .v.green { color: var(--green); }
+.mp-cell .v.cyan { color: var(--cyan); }
+.mp-cell .desc {
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+@media (max-width: 900px) { .metrics-panel { grid-template-columns: 1fr 1fr; } }
+
+/* ═══════════════════ STACK TABLE ═══════════════════ */
+
+.stack-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.stack-table th, .stack-table td {
+  padding: 14px 22px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.stack-table th {
+  font-family: var(--mono); font-size: 0.58rem;
+  color: var(--muted); letter-spacing: 0.22em;
+  text-transform: uppercase; font-weight: 500;
+  background: var(--bg-deep);
+}
+.stack-table tr:last-child td { border-bottom: none; }
+.stack-table tbody tr:hover td { background: rgba(34, 211, 238, 0.02); }
+.stack-table td.layer {
+  font-family: var(--display); font-size: 0.9rem;
+  font-weight: 600; color: var(--ink);
+  width: 220px;
+}
+.stack-table td.stack {
+  font-family: var(--mono); font-size: 0.82rem;
+  color: var(--cyan);
+}
+.stack-table td.role {
+  font-size: 0.88rem;
+  color: var(--ink-dim);
+  line-height: 1.5;
+}
+
+/* ═══════════════════ API SNIPPET ═══════════════════ */
+
+.api-shell {
+  background: var(--bg-deep);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+}
+.api-head {
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--surface);
+}
+.api-head .dots { display: flex; gap: 6px; }
+.api-head .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border-hi);
+}
+.api-head .dot.r { background: rgba(239, 68, 68, 0.6); }
+.api-head .dot.y { background: rgba(251, 191, 36, 0.6); }
+.api-head .dot.g { background: rgba(74, 222, 128, 0.6); }
+.api-head .file {
+  font-size: 0.58rem; color: var(--muted);
+  letter-spacing: 0.18em; text-transform: uppercase;
+}
+.api-body {
+  padding: 22px 26px;
+  font-size: 0.82rem;
+  line-height: 1.8;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+.api-body .c { color: var(--muted); font-style: italic; }
+.api-body .kw { color: var(--red); }
+.api-body .s { color: var(--green); }
+.api-body .n { color: var(--cyan); }
+.api-body .p { color: var(--amber); }
+.api-body .b { color: var(--ink); font-weight: 500; }
+
+/* ═══════════════════ COLOPHON ═══════════════════ */
+
+footer.colophon {
+  padding: 70px 0 56px;
+  border-top: 1px solid var(--border);
+  margin-top: 32px;
+}
+.colophon-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 40px;
+}
+.colophon-brand {
+  display: flex; flex-direction: column; gap: 14px; max-width: 40ch;
+}
+.colophon-brand .title {
+  font-family: var(--display); font-size: 1.3rem;
+  font-weight: 600; color: var(--ink);
+  letter-spacing: -0.015em;
+}
+.colophon-brand p {
+  font-size: 0.86rem; color: var(--ink-dim);
+  line-height: 1.65; margin: 0;
+}
+.colophon-col h4 {
+  font-family: var(--mono); font-size: 0.58rem;
+  color: var(--red); letter-spacing: 0.22em;
+  text-transform: uppercase; margin: 0 0 16px;
+}
+.colophon-col ul { list-style: none; padding: 0; margin: 0; }
+.colophon-col li { margin-bottom: 10px; }
+.colophon-col a {
+  font-family: var(--sans); font-size: 0.86rem;
+  color: var(--ink-dim); border-bottom: none;
+}
+.colophon-col a:hover { color: var(--cyan); }
+.colophon-rule { height: 1px; background: var(--border); margin: 44px 0 22px; }
+.colophon-foot {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;
+}
+.colophon-foot .credit {
+  font-family: var(--sans); font-size: 0.92rem;
+  color: var(--ink-dim);
+}
+.colophon-foot .credit strong { color: var(--ink); font-weight: 600; }
+.colophon-foot .meta {
+  font-family: var(--mono); font-size: 0.58rem;
+  color: var(--muted); letter-spacing: 0.18em; text-transform: uppercase;
+}
+@media (max-width: 900px) { .colophon-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 580px) { .colophon-grid { grid-template-columns: 1fr; } }
+
+@media (max-width: 900px) {
+  .hero { padding: 50px 0 30px; }
+  section.block { padding: 70px 0 40px; }
+  .shell { padding: 0 18px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="inner">
+    <a class="brand" href="#top">
+      <div class="brand-glyph">
+        <svg viewBox="0 0 44 44" aria-hidden="true">
+          <defs>
+            <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#22d3ee" />
+              <stop offset="100%" stop-color="#ef4444" />
+            </linearGradient>
+          </defs>
+          <path d="M22 4 L38 10 L38 22 Q38 34 22 40 Q6 34 6 22 L6 10 Z" fill="none" stroke="url(#shieldGrad)" stroke-width="1.6" />
+          <path d="M14 22 L20 28 L30 16" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="22" cy="22" r="2" fill="#ef4444" />
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title">Realtime Fraud Guard</div>
+        <div class="brand-sub">Streaming SOC · Cross-channel</div>
+      </div>
+    </a>
+    <div class="links">
+      <a href="#feed"><span class="live-dot"></span>Live feed</a>
+      <a href="#channels">Channels</a>
+      <a href="#architecture">Stack</a>
+      <a href="#metrics">Metrics</a>
+      <a class="cta" href="https://github.com/stelioszach03/aegis-fraud-guard" target="_blank" rel="noopener">Code →</a>
+    </div>
+  </div>
+</nav>
+
+<div class="shell" id="top">
+
+  <!-- ═══════ HERO ═══════ -->
+  <section class="hero">
+    <div class="eyebrow">
+      <span class="pill">No. 06 · Aegis Suite</span>
+      <span class="pill live"><span class="live-dot"></span>Streaming</span>
+      <span class="pill alert">Multi-channel</span>
+    </div>
+
+    <h1 class="display">
+      <span class="underline-red">Score every transaction</span><br />
+      in <em>under 50 milliseconds</em>.<br />
+      Across three channels.
+    </h1>
+
+    <p class="lede">
+      A streaming fraud-detection platform that scores <strong>payments, SMS and email</strong>
+      events as they land. <code>Kafka</code> ingress with 6-partition fan-out, an ML+rules
+      scoring path fused with per-event reasoning, <code>Redis Streams</code> alert egress,
+      <code>FastAPI</code> + <code>gRPC</code> sync scoring, <code>Prometheus</code> + <code>Grafana</code>
+      observability, and a drift detector that PSI/JS the feature distribution every window.
+    </p>
+
+    <div class="hero-ctas">
+      <a class="btn primary" href="#feed">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10h12M12 6l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        See the live feed
+      </a>
+      <a class="btn ghost" href="https://github.com/stelioszach03/aegis-fraud-guard" target="_blank" rel="noopener">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M10 0C4.475 0 0 4.475 0 10c0 4.425 2.862 8.175 6.838 9.5.5.088.687-.213.687-.475 0-.237-.013-1.025-.013-1.862-2.512.462-3.162-.613-3.362-1.175-.113-.288-.6-1.175-1.025-1.412-.35-.188-.85-.65-.013-.663.788-.013 1.35.725 1.538 1.025.9 1.512 2.337 1.087 2.912.825.088-.65.35-1.087.637-1.337-2.225-.25-4.55-1.113-4.55-4.938 0-1.087.387-1.987 1.025-2.687-.1-.25-.45-1.275.1-2.65 0 0 .837-.263 2.75 1.025A9.28 9.28 0 0110 5.725c.85.004 1.705.115 2.5.337 1.912-1.3 2.75-1.025 2.75-1.025.55 1.375.2 2.4.1 2.65.637.7 1.025 1.587 1.025 2.687 0 3.838-2.337 4.688-4.562 4.938.363.312.675.912.675 1.85 0 1.337-.013 2.412-.013 2.75 0 .262.188.575.688.475A10.01 10.01 0 0020 10c0-5.525-4.475-10-10-10z"/>
+        </svg>
+        View on GitHub
+      </a>
+    </div>
+
+    <!-- ═══════ LIVE DASHBOARD PREVIEW ═══════ -->
+    <div class="dash-card" id="feed">
+      <div class="dash-head">
+        <div class="dash-head-left">
+          <div class="dash-dots">
+            <span class="dash-dot r"></span>
+            <span class="dash-dot y"></span>
+            <span class="dash-dot g"></span>
+          </div>
+          <span class="dash-title">Scoring Console · /score</span>
+        </div>
+        <span class="dash-status"><span class="live-dot"></span>Live · dev stream</span>
+      </div>
+
+      <div class="dash-grid">
+        <div class="dash-cell">
+          <div class="k">Scored · 24h</div>
+          <div class="v cyan">1.47M</div>
+          <div class="vs">events across 3 channels</div>
+        </div>
+        <div class="dash-cell">
+          <div class="k">Alerts fired</div>
+          <div class="v red">4,183</div>
+          <div class="vs">threshold 0.85 · precision@100 = 0.60</div>
+        </div>
+        <div class="dash-cell">
+          <div class="k">p95 latency</div>
+          <div class="v green">48 ms</div>
+          <div class="vs">REST · bootstrap model · eager path</div>
+        </div>
+        <div class="dash-cell">
+          <div class="k">Drift</div>
+          <div class="v">0.18</div>
+          <div class="vs">aggregate PSI + JS · window 24h</div>
+        </div>
+      </div>
+
+      <div class="stream">
+        <div class="stream-head">
+          <span>Time</span>
+          <span>Channel</span>
+          <span>Top Reasons</span>
+          <span>Score</span>
+          <span>Lat</span>
+          <span>Verdict</span>
+        </div>
+        <div class="stream-row alert">
+          <span class="t">14:32:07</span>
+          <span><span class="ch pay">payments</span></span>
+          <span class="reason">amount · merchant_risk · txn_count_1m_user</span>
+          <span class="score high">0.891</span>
+          <span class="ms">1.2 ms</span>
+          <span class="verdict">ALERT</span>
+        </div>
+        <div class="stream-row">
+          <span class="t">14:32:08</span>
+          <span><span class="ch sms">sms</span></span>
+          <span class="reason">text_len · url_count · suspicious_word_hits</span>
+          <span class="score low">0.004</span>
+          <span class="ms">0.8 ms</span>
+          <span class="verdict">PASS</span>
+        </div>
+        <div class="stream-row">
+          <span class="t">14:32:08</span>
+          <span><span class="ch email">email</span></span>
+          <span class="reason">subject_len · body_len · link_count</span>
+          <span class="score low">0.003</span>
+          <span class="ms">0.7 ms</span>
+          <span class="verdict">PASS</span>
+        </div>
+        <div class="stream-row">
+          <span class="t">14:32:09</span>
+          <span><span class="ch pay">payments</span></span>
+          <span class="reason">amount · geoloc_mismatch · night_velocity</span>
+          <span class="score mid">0.441</span>
+          <span class="ms">1.1 ms</span>
+          <span class="verdict">PASS</span>
+        </div>
+        <div class="stream-row alert">
+          <span class="t">14:32:10</span>
+          <span><span class="ch email">email</span></span>
+          <span class="reason">link_count · blocklist_hit · reply_to_mismatch</span>
+          <span class="score high">0.927</span>
+          <span class="ms">0.9 ms</span>
+          <span class="verdict">ALERT</span>
+        </div>
+        <div class="stream-row alert">
+          <span class="t">14:32:11</span>
+          <span><span class="ch sms">sms</span></span>
+          <span class="reason">suspicious_word_hits · shortener_url · urgency</span>
+          <span class="score high">0.881</span>
+          <span class="ms">0.8 ms</span>
+          <span class="verdict">ALERT</span>
+        </div>
+        <div class="stream-row">
+          <span class="t">14:32:11</span>
+          <span><span class="ch pay">payments</span></span>
+          <span class="reason">amount · merchant_ok · device_trust</span>
+          <span class="score low">0.012</span>
+          <span class="ms">1.3 ms</span>
+          <span class="verdict">PASS</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ CHANNELS ═══════ -->
+  <section class="block" id="channels">
+    <div class="block-head">
+      <div class="block-num">Channels</div>
+      <div>
+        <h2 class="block-title">One engine, <em>three surfaces</em>.</h2>
+        <p class="block-lede">
+          Each channel has its own feature pipeline, rule DSL, and ML sub-model. All feed the same
+          scoring contract: <code>score ∈ [0,1]</code>, <code>is_alert</code>, ranked
+          <code>reasons[]</code>, and an end-to-end <code>latency_ms</code>.
+        </p>
+      </div>
+    </div>
+
+    <div class="channels">
+      <article class="channel">
+        <span class="channel-tag pay">Payments</span>
+        <h3 class="channel-title">Tx &amp; card risk</h3>
+        <p class="channel-lede">High-volume card transactions with amount, merchant, velocity and device signals. 6 Kafka partitions for parallel scoring.</p>
+        <div class="channel-features">
+          <span class="f-label">Top features</span>
+          <span class="feat">amount</span>
+          <span class="feat">merchant_risk</span>
+          <span class="feat">txn_count_1m_user</span>
+          <span class="feat">device_trust</span>
+          <span class="feat">geoloc_mismatch</span>
+        </div>
+        <div class="channel-sample"><span class="k">{</span>
+  <span class="k">"score"</span>: <span class="red">0.891</span>,
+  <span class="k">"is_alert"</span>: <span class="red">true</span>,
+  <span class="k">"threshold"</span>: 0.85,
+  <span class="k">"reasons"</span>: [
+    <span class="s">"amount"</span>,
+    <span class="s">"merchant_risk"</span>,
+    <span class="s">"txn_count_1m_user"</span>
+  ],
+  <span class="k">"latency_ms"</span>: 1.2
+<span class="k">}</span></div>
+      </article>
+
+      <article class="channel">
+        <span class="channel-tag sms">SMS</span>
+        <h3 class="channel-title">Smishing &amp; scam</h3>
+        <p class="channel-lede">Short-form messaging with URL shorteners, urgency language, blocklist hits and suspicious-word vocabulary.</p>
+        <div class="channel-features">
+          <span class="f-label">Top features</span>
+          <span class="feat">text_len</span>
+          <span class="feat">url_count</span>
+          <span class="feat">shortener_url</span>
+          <span class="feat">suspicious_word_hits</span>
+          <span class="feat">urgency_score</span>
+        </div>
+        <div class="channel-sample"><span class="k">{</span>
+  <span class="k">"score"</span>: <span class="green">0.004</span>,
+  <span class="k">"is_alert"</span>: <span class="green">false</span>,
+  <span class="k">"threshold"</span>: 0.85,
+  <span class="k">"reasons"</span>: [
+    <span class="s">"text_len"</span>,
+    <span class="s">"url_count"</span>,
+    <span class="s">"suspicious_word_hits"</span>
+  ],
+  <span class="k">"latency_ms"</span>: 0.8
+<span class="k">}</span></div>
+      </article>
+
+      <article class="channel">
+        <span class="channel-tag email">Email</span>
+        <h3 class="channel-title">Phishing &amp; BEC</h3>
+        <p class="channel-lede">Longer-form content with subject/body heuristics, link volume, reply-to mismatches and spoofed display names.</p>
+        <div class="channel-features">
+          <span class="f-label">Top features</span>
+          <span class="feat">subject_len</span>
+          <span class="feat">body_len</span>
+          <span class="feat">link_count</span>
+          <span class="feat">blocklist_hit</span>
+          <span class="feat">reply_to_mismatch</span>
+        </div>
+        <div class="channel-sample"><span class="k">{</span>
+  <span class="k">"score"</span>: <span class="green">0.003</span>,
+  <span class="k">"is_alert"</span>: <span class="green">false</span>,
+  <span class="k">"threshold"</span>: 0.85,
+  <span class="k">"reasons"</span>: [
+    <span class="s">"subject_len"</span>,
+    <span class="s">"body_len"</span>,
+    <span class="s">"link_count"</span>
+  ],
+  <span class="k">"latency_ms"</span>: 0.7
+<span class="k">}</span></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═══════ ARCHITECTURE ═══════ -->
+  <section class="block" id="architecture">
+    <div class="block-head">
+      <div class="block-num">Stack</div>
+      <div>
+        <h2 class="block-title">Kafka in, <em>Redis out</em>, metrics everywhere.</h2>
+        <p class="block-lede">
+          Event producers feed Kafka; a consumer scores and emits alerts to a Redis Stream;
+          a sync REST+gRPC API offers on-demand scoring for UI integrations; Prometheus
+          scrapes custom metrics; Grafana dashboards surface throughput, latency and drift.
+        </p>
+      </div>
+    </div>
+
+    <div class="arch-card">
+      <div class="arch-svg-wrap">
+        <svg viewBox="0 0 1100 420" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Architecture diagram">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0 0L10 5L0 10z" fill="#22d3ee" />
+            </marker>
+            <marker id="arr-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0 0L10 5L0 10z" fill="#ef4444" />
+            </marker>
+          </defs>
+
+          <!-- Generators (left) -->
+          <g transform="translate(40, 120)">
+            <rect width="150" height="50" fill="#11172b" stroke="#22d3ee" stroke-width="1.4" rx="4" />
+            <text x="75" y="22" text-anchor="middle" font-family="DM Mono, monospace" font-size="9" fill="#22d3ee" letter-spacing="2">GENERATOR</text>
+            <text x="75" y="38" text-anchor="middle" font-family="Manrope, sans-serif" font-size="10" fill="#c5cadf">payments · SMS · email</text>
+          </g>
+
+          <!-- Arrow gen -> kafka -->
+          <path d="M 190 145 L 240 145" fill="none" stroke="#22d3ee" stroke-width="1.4" marker-end="url(#arr)" />
+
+          <!-- Kafka (center-left) -->
+          <g transform="translate(240, 100)">
+            <rect width="140" height="90" fill="#11172b" stroke="#22d3ee" stroke-width="1.4" rx="4" />
+            <text x="70" y="22" text-anchor="middle" font-family="Unbounded, sans-serif" font-size="14" font-weight="700" fill="#e8ebf5">Kafka</text>
+            <text x="70" y="40" text-anchor="middle" font-family="DM Mono, monospace" font-size="8" fill="#8a94b3" letter-spacing="1">TOPICS · PARTITIONED</text>
+            <line x1="20" y1="50" x2="120" y2="50" stroke="#1f2842" />
+            <text x="70" y="64" text-anchor="middle" font-family="DM Mono, monospace" font-size="9" fill="#22d3ee">payments × 6</text>
+            <text x="70" y="78" text-anchor="middle" font-family="DM Mono, monospace" font-size="9" fill="#a78bfa">sms × 3</text>
+          </g>
+
+          <!-- Arrow kafka -> consumer -->
+          <path d="M 380 145 L 440 145" fill="none" stroke="#22d3ee" stroke-width="1.4" marker-end="url(#arr)" />
+
+          <!-- Consumer (center) -->
+          <g transform="translate(440, 95)">
+            <rect width="200" height="100" fill="#11172b" stroke="#ef4444" stroke-width="1.4" rx="4" />
+            <text x="100" y="24" text-anchor="middle" font-family="Unbounded, sans-serif" font-size="14" font-weight="700" fill="#e8ebf5">Consumer</text>
+            <text x="100" y="42" text-anchor="middle" font-family="DM Mono, monospace" font-size="8" fill="#8a94b3" letter-spacing="1">SCORING · RULES · ML</text>
+            <line x1="20" y1="52" x2="180" y2="52" stroke="#1f2842" />
+            <g transform="translate(28, 62)">
+              <rect x="0" y="0" width="40" height="10" fill="#22d3ee" opacity="0.6" />
+              <rect x="0" y="13" width="65" height="10" fill="#fbbf24" opacity="0.6" />
+              <rect x="0" y="26" width="90" height="10" fill="#ef4444" opacity="0.8" />
+            </g>
+            <text x="140" y="70" font-family="DM Mono, monospace" font-size="8" fill="#c5cadf">rule DSL</text>
+            <text x="140" y="82" font-family="DM Mono, monospace" font-size="8" fill="#c5cadf">ML score</text>
+          </g>
+
+          <!-- Arrow consumer -> redis -->
+          <path d="M 640 145 L 700 145" fill="none" stroke="#ef4444" stroke-width="1.4" marker-end="url(#arr-red)" stroke-dasharray="0" />
+          <text x="670" y="135" text-anchor="middle" font-family="DM Mono, monospace" font-size="8" fill="#ef4444">alerts</text>
+
+          <!-- Redis (right) -->
+          <g transform="translate(700, 110)">
+            <rect width="130" height="70" fill="#11172b" stroke="#ef4444" stroke-width="1.4" rx="4" />
+            <text x="65" y="26" text-anchor="middle" font-family="Unbounded, sans-serif" font-size="13" font-weight="700" fill="#e8ebf5">Redis</text>
+            <text x="65" y="44" text-anchor="middle" font-family="DM Mono, monospace" font-size="8" fill="#8a94b3" letter-spacing="1.5">ALERT STREAM</text>
+            <text x="65" y="60" text-anchor="middle" font-family="DM Mono, monospace" font-size="8" fill="#ef4444">XADD alerts:*</text>
+          </g>
+
+          <!-- REST/gRPC API below Kafka -->
+          <g transform="translate(240, 260)">
+            <rect width="200" height="90" fill="#11172b" stroke="#22d3ee" stroke-width="1.4" rx="4" />
+            <text x="100" y="22" text-anchor="middle" font-family="Unbounded, sans-serif" font-size="12" font-weight="700" fill="#e8ebf5">REST + gRPC API</text>
+            <text x="100" y="40" text-anchor="middle" font-family="DM Mono, monospace" font-size="8" fill="#8a94b3" letter-spacing="1">SYNC SCORING</text>
+            <line x1="20" y1="50" x2="180" y2="50" stroke="#1f2842" />
+            <text x="100" y="66" text-anchor="middle" font-family="DM Mono, monospace" font-size="8" fill="#22d3ee">POST /score</text>
+            <text x="100" y="80" text-anchor="middle" font-family="DM Mono, monospace" font-size="8" fill="#22d3ee">FraudScoring.Score</text>
+          </g>
+
+          <!-- Arrow consumer -> API (monitoring/config) -->
+          <path d="M 540 195 L 340 260" fill="none" stroke="#8a94b3" stroke-width="1" stroke-dasharray="3 3" />
+
+          <!-- Prometheus + Grafana (bottom right) -->
+          <g transform="translate(700, 250)">
+            <rect width="130" height="50" fill="#11172b" stroke="#fbbf24" stroke-width="1.4" rx="4" />
+            <text x="65" y="22" text-anchor="middle" font-family="Unbounded, sans-serif" font-size="12" font-weight="700" fill="#e8ebf5">Prometheus</text>
+            <text x="65" y="38" text-anchor="middle" font-family="DM Mono, monospace" font-size="8" fill="#8a94b3" letter-spacing="1">scrape · /metrics</text>
+          </g>
+          <g transform="translate(700, 320)">
+            <rect width="130" height="50" fill="#11172b" stroke="#fbbf24" stroke-width="1.4" rx="4" />
+            <text x="65" y="22" text-anchor="middle" font-family="Unbounded, sans-serif" font-size="12" font-weight="700" fill="#e8ebf5">Grafana</text>
+            <text x="65" y="38" text-anchor="middle" font-family="DM Mono, monospace" font-size="8" fill="#8a94b3" letter-spacing="1">SLO · drift · alerts</text>
+          </g>
+          <path d="M 700 275 L 650 220" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 3" />
+          <path d="M 700 345 L 650 295" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 3" />
+          <path d="M 765 300 L 765 320" fill="none" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#arr)" />
+
+          <!-- Legend -->
+          <g transform="translate(40, 380)">
+            <text x="0" y="0" font-family="DM Mono, monospace" font-size="8" fill="#8a94b3" letter-spacing="2">LEGEND</text>
+            <g transform="translate(80, -4)">
+              <line x1="0" y1="4" x2="30" y2="4" stroke="#22d3ee" stroke-width="1.4" />
+              <text x="36" y="8" font-family="DM Mono, monospace" font-size="8" fill="#c5cadf">events / sync</text>
+            </g>
+            <g transform="translate(210, -4)">
+              <line x1="0" y1="4" x2="30" y2="4" stroke="#ef4444" stroke-width="1.4" />
+              <text x="36" y="8" font-family="DM Mono, monospace" font-size="8" fill="#c5cadf">alerts</text>
+            </g>
+            <g transform="translate(300, -4)">
+              <line x1="0" y1="4" x2="30" y2="4" stroke="#fbbf24" stroke-width="1.4" stroke-dasharray="3 3" />
+              <text x="36" y="8" font-family="DM Mono, monospace" font-size="8" fill="#c5cadf">telemetry</text>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <div class="arch-caption">GENERATOR → KAFKA → CONSUMER → REDIS STREAM · SYNC · PROMETHEUS · GRAFANA</div>
+    </div>
+  </section>
+
+  <!-- ═══════ METRICS ═══════ -->
+  <section class="block" id="metrics">
+    <div class="block-head">
+      <div class="block-num">Metrics</div>
+      <div>
+        <h2 class="block-title">Offline + online, <em>paired</em>.</h2>
+        <p class="block-lede">
+          Offline: PR-AUC, ROC-AUC, precision@k. Online: latency percentiles and drift
+          (PSI + JS) over a rolling window. Thresholds are tuned on offline holdout and
+          validated against live cost/benefit.
+        </p>
+      </div>
+    </div>
+
+    <div class="metrics-panel">
+      <div class="mp-cell">
+        <div class="k">PR-AUC</div>
+        <div class="v green">0.867</div>
+        <div class="desc">Precision-recall AUC on imbalanced holdout (bootstrap model, baseline features).</div>
+      </div>
+      <div class="mp-cell">
+        <div class="k">precision@100</div>
+        <div class="v">0.60</div>
+        <div class="desc">Of the top-100 highest-scored events, 60% are true fraud — the cost-driver for review queues.</div>
+      </div>
+      <div class="mp-cell">
+        <div class="k">p95 latency</div>
+        <div class="v cyan">48 ms</div>
+        <div class="desc">End-to-end REST scoring latency on 8-core CPU, no GPU path required.</div>
+      </div>
+      <div class="mp-cell">
+        <div class="k">drift score</div>
+        <div class="v">0.18</div>
+        <div class="desc">Aggregate PSI + JS over the last 24h of feature distributions.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ STACK TABLE ═══════ -->
+  <section class="block" id="stack">
+    <div class="block-head">
+      <div class="block-num">Anatomy</div>
+      <div>
+        <h2 class="block-title">Under the <em>hood</em>.</h2>
+        <p class="block-lede">
+          Every layer is observable, tested, and independently scalable. The consumer and
+          sync API share the same scoring module so online/offline feature skew is minimised.
+        </p>
+      </div>
+    </div>
+
+    <table class="stack-table">
+      <thead>
+        <tr>
+          <th style="width: 25%">Layer</th>
+          <th style="width: 40%">Tech</th>
+          <th>Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="layer">Ingress</td>
+          <td class="stack">Kafka · Zookeeper · 6/3/3 partitions</td>
+          <td class="role">Multi-topic fan-out for payments / SMS / email with independent parallelism knobs.</td>
+        </tr>
+        <tr>
+          <td class="layer">Scoring</td>
+          <td class="stack">Python · scikit-learn · rules DSL</td>
+          <td class="role">Shared-nothing scoring module — ML features fused with a rule DSL producing ranked <code>reasons[]</code>.</td>
+        </tr>
+        <tr>
+          <td class="layer">Sync API</td>
+          <td class="stack">FastAPI · gRPC (protobuf)</td>
+          <td class="role">Dual-protocol scoring endpoint for online integrations + admin <code>/config</code>.</td>
+        </tr>
+        <tr>
+          <td class="layer">Alert egress</td>
+          <td class="stack">Redis Streams</td>
+          <td class="role">Downstream consumers (case-management, ops dashboards) subscribe without coupling to Kafka.</td>
+        </tr>
+        <tr>
+          <td class="layer">Observability</td>
+          <td class="stack">Prometheus · Grafana · custom exporter</td>
+          <td class="role">Throughput, latency percentiles, drift, alert rate, threshold-effect — all dashboarded.</td>
+        </tr>
+        <tr>
+          <td class="layer">Evaluation</td>
+          <td class="stack">PR-AUC · ROC-AUC · precision@k · PSI/JS</td>
+          <td class="role">Offline harness + drift report, tuned on holdout and validated live.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════ API SNIPPET ═══════ -->
+  <section class="block" id="api">
+    <div class="block-head">
+      <div class="block-num">API</div>
+      <div>
+        <h2 class="block-title">One <em>scoring contract</em>.</h2>
+        <p class="block-lede">
+          REST and gRPC both return the same shape — a score, an alert flag, ranked reasons,
+          and a latency. The threshold is runtime-configurable via <code>/config</code>.
+        </p>
+      </div>
+    </div>
+
+    <div class="api-shell">
+      <div class="api-head">
+        <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <span class="file">examples/score_payment.sh</span>
+      </div>
+      <div class="api-body"><span class="c"># POST /score — payments channel</span>
+<span class="kw">curl</span> -sS -X <span class="p">POST</span> http://localhost:8000/score \
+  -H <span class="s">'Content-Type: application/json'</span> \
+  -d <span class="s">'{
+    "channel": "payments",
+    "event": {
+      "amount": 4821.50,
+      "merchant_id": "M-772",
+      "user_id": "U-2039",
+      "country": "CA"
+    }
+  }'</span>
+
+<span class="c"># → 200 OK</span>
+<span class="b">{
+  <span class="n">"score"</span>: 0.891,
+  <span class="n">"is_alert"</span>: true,
+  <span class="n">"threshold"</span>: 0.85,
+  <span class="n">"reasons"</span>: [
+    <span class="s">"amount"</span>,
+    <span class="s">"merchant_risk"</span>,
+    <span class="s">"txn_count_1m_user"</span>
+  ],
+  <span class="n">"latency_ms"</span>: 1.2
+}</span>
+
+<span class="c"># gRPC mirrors the same contract:</span>
+<span class="c">#   FraudScoring.Score(channel, event) → ScoreReply</span></div>
+    </div>
+  </section>
+
+</div>
+
+<footer class="colophon">
+  <div class="shell">
+    <div class="colophon-grid">
+      <div class="colophon-brand">
+        <div class="title">Realtime Fraud Guard</div>
+        <p>A streaming fraud-detection platform covering payments, SMS and email in a single scoring contract. Built as a portfolio study in streaming ML systems, observability and production engineering.</p>
+      </div>
+      <div class="colophon-col">
+        <h4>Live</h4>
+        <ul>
+          <li><a href="#feed">Scoring console</a></li>
+          <li><a href="https://stelioszach.com/aegis-fraud-guard/health" target="_blank" rel="noopener">Health endpoint</a></li>
+          <li><a href="#api">API contract</a></li>
+        </ul>
+      </div>
+      <div class="colophon-col">
+        <h4>Source</h4>
+        <ul>
+          <li><a href="https://github.com/stelioszach03/aegis-fraud-guard" target="_blank" rel="noopener">GitHub repo</a></li>
+          <li><a href="https://github.com/stelioszach03/aegis-fraud-guard/blob/main/services/inference_api" target="_blank" rel="noopener">Inference API</a></li>
+          <li><a href="https://github.com/stelioszach03/aegis-fraud-guard/blob/main/services/rules" target="_blank" rel="noopener">Rules DSL</a></li>
+        </ul>
+      </div>
+      <div class="colophon-col">
+        <h4>Aegis Suite</h4>
+        <ul>
+          <li><a href="https://stelioszach.com/aegis-graph-fraud-gnn/" rel="noopener">Graph Fraud GNN</a></li>
+          <li><a href="https://stelioszach.com/nyc-subway-anomaly/" rel="noopener">NYC Subway Anomaly</a></li>
+          <li><a href="https://stelioszach.com/aegis-graph-aml/" rel="noopener">AML Investigator</a></li>
+          <li><a href="https://stelioszach.com/aegis-deid/" rel="noopener">DeID Privacy Studio</a></li>
+          <li><a href="https://stelioszach.com/llm-smt-verifiable-reasoning/" rel="noopener">CEGVR (LLM + SMT)</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="colophon-rule"></div>
+    <div class="colophon-foot">
+      <div class="credit">Built by <strong>Stelios Zacharioudakis</strong> — CS, NKUA Athens.</div>
+      <div class="meta">© 2026 · No. 06 Aegis Suite · MIT License</div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
