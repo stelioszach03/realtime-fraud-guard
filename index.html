@@ -1267,16 +1267,18 @@ footer.colophon {
         <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
         <span class="file">examples/score_payment.sh</span>
       </div>
-      <div class="api-body"><span class="c"># POST /score — payments channel</span>
-<span class="kw">curl</span> -sS -X <span class="p">POST</span> http://localhost:8000/score \
+      <div class="api-body"><span class="c"># POST /score — live endpoint, real API</span>
+<span class="kw">curl</span> -sS -X <span class="p">POST</span> https://stelioszach.com/aegis-fraud-guard/score \
   -H <span class="s">'Content-Type: application/json'</span> \
   -d <span class="s">'{
-    "channel": "payments",
-    "event": {
+    "source": "payments",
+    "payload": {
       "amount": 4821.50,
       "merchant_id": "M-772",
       "user_id": "U-2039",
-      "country": "CA"
+      "country": "CA",
+      "merchant_risk": 0.9,
+      "txn_count_1m_user": 12
     }
   }'</span>
 
@@ -1294,7 +1296,7 @@ footer.colophon {
 }</span>
 
 <span class="c"># gRPC mirrors the same contract:</span>
-<span class="c">#   FraudScoring.Score(channel, event) → ScoreReply</span></div>
+<span class="c">#   FraudScoring.Score(source, payload) → ScoreReply</span></div>
     </div>
   </section>
 
