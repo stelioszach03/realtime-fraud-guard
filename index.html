@@ -759,6 +759,266 @@ footer.colophon {
   section.block { padding: 70px 0 40px; }
   .shell { padding: 0 18px; }
 }
+
+/* ═══════ LIVE SCORING WIDGET ═══════ */
+.sc-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 2px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  margin-top: 28px;
+}
+.sc-pane { background: var(--paper); padding: 26px 28px; position: relative; }
+.sc-pane .pane-label {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted-deep);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sc-pane .pane-label::before {
+  content: ""; display: inline-block;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+  animation: pulsedot 1.6s ease-in-out infinite;
+}
+@keyframes pulsedot { 50% { opacity: 0.45; } }
+
+.sc-source {
+  display: flex;
+  gap: 2px;
+  background: var(--rule);
+  padding: 1px;
+  border-radius: 2px;
+  margin-bottom: 18px;
+}
+.sc-src-btn {
+  flex: 1;
+  padding: 9px 12px;
+  background: var(--paper);
+  color: var(--muted);
+  border: none;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .14s;
+}
+.sc-src-btn.active { background: var(--cyan); color: var(--bg-deep); }
+.sc-src-btn:not(.active):hover { color: var(--ink); }
+
+.sc-preset {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.sc-preset-btn {
+  padding: 10px 14px;
+  background: var(--paper-soft);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  text-align: left;
+  transition: all .14s;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.sc-preset-btn:hover { border-color: var(--cyan); }
+.sc-preset-btn .head { font-weight: 600; }
+.sc-preset-btn.safe .head { color: var(--green); }
+.sc-preset-btn.fraud .head { color: var(--red); }
+.sc-preset-btn .hint {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted-deep);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.sc-payload {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  background: var(--bg-deep);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 12px 14px;
+  white-space: pre;
+  color: var(--muted);
+  line-height: 1.65;
+  overflow-x: auto;
+  min-height: 180px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.sc-payload .k { color: var(--cyan); }
+.sc-payload .s { color: var(--green); }
+.sc-payload .n { color: var(--amber); }
+
+.sc-action {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+}
+.sc-action .btn-score {
+  padding: 12px 22px;
+  background: var(--red);
+  color: white;
+  border: 1px solid var(--red);
+  border-radius: 2px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .14s;
+  box-shadow: 0 12px 32px -14px rgba(239, 68, 68, 0.45);
+}
+.sc-action .btn-score:hover { background: var(--red-deep); border-color: var(--red-deep); }
+.sc-action .btn-score:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.sc-result {
+  min-height: 300px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.sc-gauge {
+  position: relative;
+  height: 130px;
+  background: var(--bg-deep);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.sc-gauge-bar {
+  position: absolute;
+  left: 0; bottom: 0;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--green) 0%, var(--amber) 50%, var(--red) 100%);
+  transition: width 0.6s cubic-bezier(.2,.8,.2,1);
+  opacity: 0.14;
+}
+.sc-gauge-thresh {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 85%;
+  width: 1px;
+  background: var(--muted-deep);
+}
+.sc-gauge-thresh::after {
+  content: "threshold 0.85";
+  position: absolute;
+  top: 8px; left: 8px;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted-deep);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.sc-gauge-value {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 3.2rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  z-index: 2;
+}
+.sc-gauge-label {
+  position: absolute;
+  bottom: 10px; left: 14px;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted-deep);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  z-index: 2;
+}
+.sc-verdict {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border: 1px solid var(--rule-hi);
+  border-radius: 2px;
+  background: var(--paper-hi);
+  color: var(--muted);
+  align-self: flex-start;
+}
+.sc-verdict.alert { color: var(--red); border-color: rgba(239, 68, 68, 0.55); background: rgba(239, 68, 68, 0.1); }
+.sc-verdict.clear { color: var(--green); border-color: rgba(74, 222, 128, 0.55); background: rgba(74, 222, 128, 0.08); }
+.sc-verdict .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.sc-reasons { }
+.sc-reasons h5 {
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.2em;
+  color: var(--muted-deep); text-transform: uppercase; margin: 0 0 8px 0;
+}
+.sc-reasons .chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.sc-reasons .chip {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink);
+  background: var(--bg-deep);
+  border: 1px solid var(--rule);
+  padding: 4px 10px;
+  border-radius: 2px;
+  letter-spacing: 0.02em;
+}
+.sc-reasons .chip.weight {
+  color: var(--amber);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+.sc-reasons .chip:empty { display: none; }
+
+.sc-telemetry {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+.sc-telemetry > div {
+  padding: 10px 12px;
+  background: var(--bg-deep);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+.sc-telemetry .k {
+  font-size: 0.58rem;
+  color: var(--muted-deep);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.sc-telemetry .v { color: var(--ink); font-size: 0.92rem; font-weight: 500; }
+.sc-telemetry .v.alert { color: var(--red); }
+.sc-telemetry .v.clear { color: var(--green); }
+
+@media (max-width: 820px) {
+  .sc-wrap { grid-template-columns: 1fr; }
+  .sc-telemetry, .sc-preset { grid-template-columns: 1fr; }
+}
+
 </style>
 </head>
 <body>
@@ -786,6 +1046,7 @@ footer.colophon {
     </a>
     <div class="links">
       <a href="#feed"><span class="live-dot"></span>Live feed</a>
+      <a href="#live-score">Score live</a>
       <a href="#channels">Channels</a>
       <a href="#architecture">Stack</a>
       <a href="#metrics">Metrics</a>
@@ -932,6 +1193,84 @@ footer.colophon {
           <span class="score low">0.012</span>
           <span class="ms">1.3 ms</span>
           <span class="verdict">PASS</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ LIVE SCORING WIDGET ═══════ -->
+  <section class="block" id="live-score">
+    <div class="block-head">
+      <div class="block-num">Score live</div>
+      <div>
+        <h2 class="block-title">Every button below calls the <em>real</em> model.</h2>
+        <p class="block-lede">
+          The widget posts to <code>POST /score</code> on the live inference API and renders the
+          returned <code>score ∈ [0,1]</code>, <code>is_alert</code>, ranked <code>reasons[]</code>,
+          and end-to-end <code>latency_ms</code>. Flip between <strong>payments</strong>,
+          <strong>SMS</strong>, and <strong>email</strong>, then try a <span class="green">safe</span>
+          or <span class="red">fraud</span> preset — or edit the JSON payload and see how the score shifts.
+        </p>
+      </div>
+    </div>
+
+    <div class="sc-wrap">
+      <!-- LEFT: INPUT -->
+      <div class="sc-pane">
+        <div class="pane-label">Event payload</div>
+
+        <div class="sc-source" role="tablist">
+          <button class="sc-src-btn active" data-source="payments">Payments</button>
+          <button class="sc-src-btn" data-source="sms">SMS</button>
+          <button class="sc-src-btn" data-source="email">Email</button>
+        </div>
+
+        <div class="sc-preset">
+          <button class="sc-preset-btn safe" data-preset="safe">
+            <span class="head">◎ Safe</span>
+            <span class="hint">legit transaction pattern</span>
+          </button>
+          <button class="sc-preset-btn fraud" data-preset="fraud">
+            <span class="head">▲ Fraud</span>
+            <span class="hint">textbook suspicious signal</span>
+          </button>
+        </div>
+
+        <div class="sc-payload" contenteditable="true" id="sc-payload" spellcheck="false"></div>
+
+        <div class="sc-action">
+          <button class="btn-score" id="sc-score-btn">▶ Score event</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: RESULT -->
+      <div class="sc-pane">
+        <div class="pane-label">Model decision</div>
+        <div class="sc-result">
+          <div class="sc-gauge">
+            <div class="sc-gauge-bar" id="sc-gauge-bar"></div>
+            <div class="sc-gauge-thresh"></div>
+            <div class="sc-gauge-value" id="sc-gauge-value">—</div>
+            <div class="sc-gauge-label">score · 0.00 – 1.00</div>
+          </div>
+
+          <div class="sc-verdict" id="sc-verdict">
+            <span class="dot"></span>
+            <span id="sc-verdict-text">Awaiting first event</span>
+          </div>
+
+          <div class="sc-reasons">
+            <h5>Top reasons</h5>
+            <div class="chips" id="sc-reasons">
+              <span class="chip">—</span>
+            </div>
+          </div>
+
+          <div class="sc-telemetry">
+            <div><div class="k">latency</div><div class="v" id="sc-lat">—</div></div>
+            <div><div class="k">is_alert</div><div class="v" id="sc-alert">—</div></div>
+            <div><div class="k">threshold</div><div class="v" id="sc-thresh">—</div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1343,6 +1682,155 @@ footer.colophon {
     </div>
   </div>
 </footer>
+
+
+<script>
+(() => {
+  const host = window.location.host;
+  const isLocal = host.startsWith('127.') || host.startsWith('localhost') || host.startsWith('0.0.0.0') || host.includes('.local');
+  const isSubpath = window.location.pathname.split('/').filter(Boolean)[0] === 'realtime-fraud-guard';
+  const API_BASE = isLocal
+    ? 'https://stelioszach.com/realtime-fraud-guard/live'
+    : (isSubpath ? '/realtime-fraud-guard/live' : '/live');
+
+  const $ = (s) => document.querySelector(s);
+
+  const PRESETS = {
+    payments: {
+      safe:  { amount: 25.40, currency: 'USD', user_id: 'u_100', device_id: 'd_10',  merchant: 'LOCAL-CAFE',   merchant_id: 'm_cafe',   country: 'US' },
+      fraud: { amount: 8500.00, currency: 'USD', user_id: 'u_99',  device_id: 'd_new', merchant: 'CRYPTO-XCHG',  merchant_id: 'm_crypto', country: 'NG' }
+    },
+    sms: {
+      safe:  { phone_number: '+15555551234', user_id: 'u_10', text: 'Your package arrives today between 2-4pm.' },
+      fraud: { phone_number: '+15555551234', user_id: 'u_10', text: 'URGENT! Verify your bank password NOW at http://bit.ly/verify-now. Click immediately. Your account is LOCKED.' }
+    },
+    email: {
+      safe:  { user_id: 'u_10', sender: 'alice@example.com', sender_domain: 'example.com',
+               subject: 'Weekly newsletter: week 42 digest',
+               body: 'Hi, attached the document you requested. Thanks!' },
+      fraud: { user_id: 'u_10', sender: 'support@secure-88.tk', sender_domain: 'secure-88.tk',
+               subject: 'URGENT: Verify your account now or it will be LOCKED',
+               body: 'Your account has been LOCKED. Click http://bank-verify.su/login to verify password urgent action required now.' }
+    }
+  };
+
+  const state = {
+    source: 'payments',
+    preset: 'safe'
+  };
+
+  function syntaxColor(json) {
+    const escaped = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return escaped.replace(/("([^"\\]|\\.)*"(\s*:)?)|\b(\d+(?:\.\d+)?)\b|\b(true|false|null)\b/g, (m) => {
+      if (/^"/.test(m)) {
+        return /:$/.test(m) ? `<span class="k">${m}</span>` : `<span class="s">${m}</span>`;
+      }
+      if (/true|false|null/.test(m)) return `<span class="n">${m}</span>`;
+      return `<span class="n">${m}</span>`;
+    });
+  }
+
+  function loadPreset() {
+    const body = PRESETS[state.source][state.preset];
+    const text = JSON.stringify(body, null, 2);
+    $('#sc-payload').innerHTML = syntaxColor(text);
+  }
+
+  function parsePayload() {
+    const txt = $('#sc-payload').innerText.trim();
+    try { return JSON.parse(txt); }
+    catch (e) { return null; }
+  }
+
+  function setVerdict(isAlert, score) {
+    const v = $('#sc-verdict');
+    const t = $('#sc-verdict-text');
+    v.classList.remove('alert', 'clear');
+    if (score == null) { t.textContent = 'Awaiting first event'; return; }
+    if (isAlert) { v.classList.add('alert'); t.textContent = '△ ALERT · flagged for review'; }
+    else         { v.classList.add('clear'); t.textContent = '◎ CLEAR · below threshold'; }
+  }
+
+  function renderScore(resp) {
+    const score = resp.score;
+    const pct = Math.min(100, Math.max(0, score * 100));
+    $('#sc-gauge-bar').style.width = pct + '%';
+    $('#sc-gauge-bar').style.opacity = 0.14 + Math.min(0.5, score * 0.5);
+    $('#sc-gauge-value').textContent = score.toFixed(4);
+    $('#sc-gauge-value').style.color = resp.is_alert ? 'var(--red)' : 'var(--green)';
+
+    setVerdict(resp.is_alert, score);
+
+    const reasonsHost = $('#sc-reasons');
+    reasonsHost.innerHTML = '';
+    (resp.reasons || []).forEach(r => {
+      const chip = document.createElement('span');
+      chip.className = 'chip' + (resp.is_alert ? ' weight' : '');
+      chip.textContent = r;
+      reasonsHost.appendChild(chip);
+    });
+    if (!resp.reasons || !resp.reasons.length) {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.textContent = 'no reasons returned';
+      reasonsHost.appendChild(chip);
+    }
+
+    $('#sc-lat').textContent = (resp.latency_ms != null ? resp.latency_ms.toFixed(2) + ' ms' : '—');
+    $('#sc-alert').textContent = resp.is_alert ? 'true' : 'false';
+    $('#sc-alert').className = 'v ' + (resp.is_alert ? 'alert' : 'clear');
+    $('#sc-thresh').textContent = resp.threshold != null ? resp.threshold : '—';
+  }
+
+  async function score() {
+    const payload = parsePayload();
+    if (!payload) {
+      setVerdict(false, null);
+      $('#sc-verdict-text').textContent = '⚠ invalid JSON — fix the payload and retry';
+      return;
+    }
+    $('#sc-score-btn').disabled = true;
+    try {
+      const r = await fetch(`${API_BASE}/score`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ source: state.source, payload })
+      });
+      if (!r.ok) {
+        setVerdict(false, null);
+        $('#sc-verdict-text').textContent = `⚠ HTTP ${r.status}`;
+        return;
+      }
+      const j = await r.json();
+      renderScore(j);
+    } catch (e) {
+      setVerdict(false, null);
+      $('#sc-verdict-text').textContent = '⚠ ' + String(e).slice(0, 80);
+    } finally {
+      $('#sc-score-btn').disabled = false;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.sc-src-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.sc-src-btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        state.source = b.dataset.source;
+        loadPreset();
+      });
+    });
+    document.querySelectorAll('.sc-preset-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        state.preset = b.dataset.preset;
+        loadPreset();
+      });
+    });
+    $('#sc-score-btn').addEventListener('click', score);
+    loadPreset();
+  });
+})();
+</script>
 
 </body>
 </html>

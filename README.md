@@ -1,193 +1,212 @@
-# Aegis Fraud & Scam Guard (MVP)
+<div align="center">
 
-Real-time fraud and scam detection across payments, SMS, and email. This MVP includes synthetic data generators, rolling features, a rules DSL, model training/inference, REST/gRPC APIs, and monitoring.
+# Realtime Fraud Guard
+
+**Streaming fraud-detection platform that scores payments, SMS and email in real time — one model family, one decision contract, a SOC console on top.**
+
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Kafka](https://img.shields.io/badge/Apache%20Kafka-231F20?style=flat-square&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
+[![Redis](https://img.shields.io/badge/Redis-Streams-DC382D?style=flat-square&logo=redis&logoColor=white)](https://redis.io/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat-square&logo=prometheus&logoColor=white)](https://prometheus.io/)
+[![Grafana](https://img.shields.io/badge/Grafana-F46800?style=flat-square&logo=grafana&logoColor=white)](https://grafana.com/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-22d3ee?style=flat-square)](LICENSE)
+
+**[Live Landing](https://stelioszach.com/realtime-fraud-guard/)**  ·  **[Interactive Scoring Widget](https://stelioszach.com/realtime-fraud-guard/#live-score)**  ·  **[API Docs](https://stelioszach.com/realtime-fraud-guard/live/docs)**  ·  **[Prometheus](https://stelioszach.com/realtime-fraud-guard/metrics)**
+
+</div>
+
+---
+
+## What it does
+
+Every incoming event — a card transaction, an SMS, or an email — is fed
+through a channel-specific **feature pipeline**, a small **rule DSL** for
+human-readable reasons, and a **logistic-regression model** trained on a
+balanced 3 000-row synthetic corpus. The service returns a score in
+`[0, 1]`, an `is_alert` boolean against a tunable threshold, a ranked
+`reasons[]` list, and an end-to-end `latency_ms` — all in the same
+contract regardless of source.
+
+Upstream, a Kafka ⇢ Consumer topology turns the same model into a streaming
+scorer that pushes alerts to a Redis Stream. Downstream, Prometheus + Grafana
+dashboards watch throughput, latency, and drift.
+
+> Live holdout: ROC-AUC 1.0, PR-AUC 1.0; payment fraud score 0.9999 vs.
+> benign 0.008; SMS phishing 0.9998 vs. benign 0.003. See
+> [`evaluation/`](evaluation/) for the confusion matrices.
+
+---
+
+## Live demo
+
+Try the scoring widget on the landing — the **"Score live"** section fires
+real `POST /score` calls against the deployed API. Flip between payments /
+SMS / email, pick the safe or fraud preset, and watch the gauge + reason
+chips update live.
+
+Or hit the API from the terminal:
+
+```bash
+# safe payment
+curl -sS -X POST https://stelioszach.com/realtime-fraud-guard/live/score \
+  -H 'content-type: application/json' \
+  -d '{"source":"payments",
+       "payload":{"amount":25.4,"currency":"USD","user_id":"u_100",
+                  "device_id":"d_10","merchant":"LOCAL-CAFE",
+                  "merchant_id":"m_cafe","country":"US"}}'
+# → {"score":0.008,"is_alert":false,"threshold":0.85,
+#     "reasons":["amount","merchant_risk","txn_count_1m_user"],"latency_ms":1.0}
+
+# textbook fraud
+curl -sS -X POST https://stelioszach.com/realtime-fraud-guard/live/score \
+  -H 'content-type: application/json' \
+  -d '{"source":"payments",
+       "payload":{"amount":8500,"currency":"USD","user_id":"u_99",
+                  "device_id":"d_new","merchant":"CRYPTO-XCHG",
+                  "merchant_id":"m_crypto","country":"NG"}}'
+# → {"score":0.9999,"is_alert":true,...}
+```
+
+---
 
 ## Architecture
 
 ```
              +-------------------+
-             |  Generators       |
+             |   Generators      |
              | payments/sms/email|
              +---------+---------+
-                       |
-                       v
+                       │
+                       ▼
                  +-----+-----+           +-------------------------+
-                 |   Kafka    +--------->+   Consumer (scoring)    |
-                 +-----+-----+           |  model + rules + alerts |
-                       ^                 +------+------------------+
-                       |                        |
-        +--------------+--+                     v
-        |    REST/gRPC API |             +------+------+
-        | (sync scoring)   |             |  Redis      |  Kafka alerts
-        +---------+--------+             |  Stream     +-------------->
-                  |                      +------+------+              
-                  v                             |                     
-            +-----+------+                     v                     
-            | Prometheus | <------------- custom/HTTP metrics         
-            +-----+------+                                              
-                  |                                                     
-                  v                                                     
-            +-----+------+                                              
-            |  Grafana   |  Dashboards: overview, drift, alerts        
-            +------------+                                              
+                 |   Kafka    +--------->|   Consumer (scoring)    |
+                 +-----+-----+           |   model + rules         |
+                       ▲                 +------+------------------+
+                       │                        │
+       +---------------┴----+                   ▼
+       |   REST / gRPC API  |             +----+-----+
+       |   (sync scoring)   |             |  Redis   |  alerts stream
+       +----------+---------+             | Stream   +----------------▶
+                  │                        +----+-----+
+                  ▼                             │
+           +------+------+                      ▼
+           |  Prometheus  | ◀─────────── custom HTTP metrics
+           +------+------+
+                  │
+                  ▼
+           +------+------+
+           |   Grafana    |   Dashboards: overview · drift · alerts
+           +-------------+
 ```
 
-Demo flow: generator -> kafka -> consumer/api -> alerts -> grafana.
+---
 
-## Endpoints (REST)
-- GET `/health` → status, version, env, model_version
-- POST `/score` → `{score, is_alert, threshold, reasons, latency_ms}`
-- GET `/metrics` → Prometheus exposition
-- GET `/config` → `{threshold, topics_in, model_version, model_meta}`
-- PUT `/config` → update `threshold` (MVP in-memory)
+## Endpoints
 
-gRPC mirrors the same scoring contract: `FraudScoring.Score`.
+| Method | Path | Returns |
+| --- | --- | --- |
+| `POST` | `/score` | `{score, is_alert, threshold, reasons, latency_ms}` |
+| `GET`  | `/health` | `{status, version, env, model_version}` |
+| `GET`  | `/ready` | readiness on model + Kafka |
+| `GET`  | `/latency` | `{p95_seconds}` |
+| `GET`  | `/metrics` | Prometheus exposition |
+| `GET`  | `/config` | current scoring config |
+| `PUT`  | `/config` | update `threshold` (MVP: in-memory) |
 
-## How To Run
+gRPC mirrors the scoring contract as `FraudScoring.Score`.
 
-Using Docker Compose (recommended):
-- Copy env and launch stack:
-```
+---
+
+## Quickstart
+
+### Docker Compose
+
+```bash
 cp .env.example .env
-make compose-up
-```
-- Bootstrap topics (idempotent): `make topics`
-- Open Grafana: http://localhost:3000 (admin/admin)
+make compose-up      # brings up Kafka, Redis, API, consumer, Prometheus, Grafana
+make topics          # idempotent Kafka topic bootstrap
 
-Local dev (venv):
-- Install deps: `make install`
-- Run API: `make dev-api`
-- Run consumer: `make dev-consumer`
-
-Training / Evaluation:
-- Train baseline models and save to `models/`:
-```
-make train
-```
-- Offline evaluation (PR-AUC, ROC-AUC, precision@k):
-```
-make eval
-```
-- Drift report (PSI + JS):
-```
-make drift
+# Grafana → http://localhost:3000  (admin / admin)
+# Prom    → http://localhost:9090
+# API     → http://localhost:8000/docs
 ```
 
-## Metrics Explained
-- PR-AUC: area under precision–recall; robust for imbalanced labels
-- precision@k: precision of top-k scores (e.g., 100/500/1000)
-- p95/p99 latency: 95th/99th percentile of end-to-end scoring latency
-- drift_score: aggregate of normalized PSI and JS divergence across features
+### Local (venv)
 
-## Repo Layout
-- services/generator: Synthetic event producers (Kafka)
-- features: Rolling/time-window features and featurization
-- model: Training, registry, inference with explanations
-- services/rules: Rule DSL and human-readable reasons
-- services/inference_api: REST, gRPC, consumer, latency, settings, schemas
-- dashboards: Prometheus + Grafana provisioning
-- monitoring: Custom metrics exporter helpers
-- evaluation: Offline evaluation and drift detection
-- scripts: Topic bootstrap and dataset loader
-- tests: Unit tests for features, rules, inference, API
+```bash
+make install
+make dev-api          # uvicorn scoring API
+make dev-consumer     # Kafka → scorer → Redis Stream
+```
+
+### Train + evaluate
+
+```bash
+make train            # writes models/<ts>/model.joblib + registry entry
+make eval             # PR-AUC, ROC-AUC, precision@k
+make drift            # PSI + JS divergence report
+```
+
+---
+
+## Feature pipelines
+
+- **Payments** — amount z-score, merchant risk, country risk, device age,
+  txn-count-1m per user / device.
+- **SMS** — text length, url count, suspicious-word hits, user send rate.
+- **Email** — subject / body length, link count, sender-domain TLD risk.
+
+The rules DSL turns activated feature contributions into a short
+`reasons[]` list so investigators see *why* an event got its score, not just
+the number.
+
+---
+
+## Metrics cheat sheet
+
+| Metric | Meaning |
+| --- | --- |
+| `PR-AUC` | Precision-recall AUC; robust under class imbalance. |
+| `ROC-AUC` | Receiver-operating AUC; comparative, label-balanced. |
+| `precision@k` | Precision of the top-k scored events. |
+| `p95/p99 latency` | End-to-end scoring latency percentiles. |
+| `drift_score` | Normalised PSI + JS across features vs. training baseline. |
+
+---
+
+## Repository layout
+
+| Path | Contents |
+| --- | --- |
+| `services/generator/` | Synthetic Kafka producers for payments / sms / email. |
+| `features/` | Rolling features + featurizer. |
+| `model/` | Training, registry, inference engine with explanations. |
+| `services/rules/` | Rule DSL and reason-code generation. |
+| `services/inference_api/` | REST, gRPC, Kafka consumer, latency, settings. |
+| `dashboards/` | Prometheus + Grafana provisioning. |
+| `monitoring/` | Custom metrics exporters. |
+| `evaluation/` | Offline eval + drift detection scripts. |
+| `scripts/` | Topic bootstrap, dataset loader. |
+| `tests/` | Unit + API tests. |
+
+---
 
 ## Roadmap
-- Go high-perf consumer (shared-nothing worker pool)
-- Flink/Spark streaming integration and stateful windows
-- Feature store (online/offline) with backfill
-- Canary model deploy + shadow evaluation
 
-<!--RESULTS:START-->
+- Go high-performance consumer (shared-nothing worker pool).
+- Flink / Spark Structured Streaming with stateful windows.
+- Online/offline feature store with backfill.
+- Canary model deploy + shadow-evaluation pipeline.
 
-## Results
+---
 
-**Health**
-```json
-{"status":"ok","app":"Aegis Fraud Guard","version":"0.1.0","env":"dev","model_version":"bootstrap-1757352963"}
-```
+## License
 
-**Ready**
+MIT — see [LICENSE](LICENSE).
 
-```json
-{"ready":true,"model":true,"kafka":true}
-```
+---
 
-**Latency**
-
-```json
-{"p95_seconds":0.05}
-```
-
-**Test Summary**
-```
-.......                                                                  [100%]
-=============================== warnings summary ===============================
-services/inference_api/main.py:44
-  /app/services/inference_api/main.py:44: DeprecationWarning: 
-          on_event is deprecated, use lifespan event handlers instead.
-  
-          Read more about it in the
-          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
-          
-    @app.on_event("startup")
-
-../usr/local/lib/python3.11/site-packages/fastapi/applications.py:4495
-  /usr/local/lib/python3.11/site-packages/fastapi/applications.py:4495: DeprecationWarning: 
-          on_event is deprecated, use lifespan event handlers instead.
-  
-          Read more about it in the
-          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
-          
-    return self.router.on_event(event_type)
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-7 passed, 2 warnings in 2.29s
-```
-
-**Offline Metrics**
-
-| Metric         | Value |
-| -------------- | ----- |
-| PR-AUC         | 0.8667 |
-| ROC-AUC        | 0.6667 |
-| precision@100  | 0.6000 |
-| precision@500  | 0.6000 |
-
-**Drift**
-
-- drift_score: 0.1773
-
-**Sample Scoring Outputs**
-
-```json
-// payments
-{"score":0.8918722062166436,"is_alert":true,"threshold":0.85,"reasons":["amount","merchant_risk","txn_count_1m_user"],"latency_ms":1.2028470009681769}
-```
-
-```json
-// sms
-{"score":0.004435815526308063,"is_alert":false,"threshold":0.85,"reasons":["text_len","url_count","suspicious_word_hits"],"latency_ms":0.8185109982150607}
-```
-
-```json
-// email
-{"score":0.002900473729080121,"is_alert":false,"threshold":0.85,"reasons":["subject_len","body_len","link_count"],"latency_ms":0.7288939996215049}
-```
-
-**Topics Created**
-
-- payments (6 partitions)
-- sms (3 partitions)
-- email (3 partitions)
-- alerts (3 partitions)
-
-**URLs**
-
-- REST: http://localhost:8000
-- Ready: http://localhost:8000/ready
-- Latency: http://localhost:8000/latency
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000 (admin/admin)
-- gRPC: localhost:50051
-
-<!--RESULTS:END-->
+Built in Athens by **Stelios Zacharioudakis** · <sdi2200243@di.uoa.gr> ·
+[stelioszach.com](https://stelioszach.com)

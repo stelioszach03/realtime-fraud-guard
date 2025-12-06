@@ -6,6 +6,7 @@ from typing import Any
 
 import orjson
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse, PlainTextResponse
 from loguru import logger
 from prometheus_client import CONTENT_TYPE_LATEST, Histogram, generate_latest
@@ -27,6 +28,20 @@ def _orjson_dumps(v: Any, *, default):
 
 
 app = FastAPI(title="Aegis Fraud Guard (services)", default_response_class=ORJSONResponse)
+
+# CORS — open to make the public landing widget callable from any origin
+# (portfolio preview, localhost, stelioszach.com itself). Scoring is read-
+# only with no side effects, so wide-open CORS is safe for the demo.
+_cors_env = os.getenv("CORS_ALLOW_ORIGINS", "*")
+_allow_origins = ["*"] if _cors_env.strip() == "*" else [o.strip() for o in _cors_env.split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allow_origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 settings = get_settings()
 engine = InferenceEngine()
 
