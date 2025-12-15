@@ -1,5 +1,7 @@
 <div align="center">
 
+[![CI](https://github.com/stelioszach03/realtime-fraud-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/stelioszach03/realtime-fraud-guard/actions)
+
 # Realtime Fraud Guard
 
 **Streaming fraud-detection platform that scores payments, SMS and email in real time — one model family, one decision contract, a SOC console on top.**
