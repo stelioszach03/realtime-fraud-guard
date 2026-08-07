@@ -35,9 +35,17 @@ Upstream, a Kafka ⇢ Consumer topology turns the same model into a streaming
 scorer that pushes alerts to a Redis Stream. Downstream, Prometheus + Grafana
 dashboards watch throughput, latency, and drift.
 
-> Live holdout: ROC-AUC 1.0, PR-AUC 1.0; payment fraud score 0.9999 vs.
-> benign 0.008; SMS phishing 0.9998 vs. benign 0.003. See
-> [`evaluation/`](evaluation/) for the confusion matrices.
+> **This is a streaming-systems project, not a model result.** The classifier is
+> trained and evaluated on a synthetic corpus this repo generates itself
+> ([`evaluation/datasets/synth_v2.jsonl`](evaluation/datasets/synth_v2.jsonl),
+> 3 000 balanced rows). The two classes are separable by construction — benign
+> SMS reads `"Library book due this week."`, fraud reads
+> `"You WON $10,000! Click http://… URGENT."` — so the offline scores are a
+> **sanity check that the pipeline is wired end to end**, not evidence that the
+> model detects real fraud. **No accuracy or AUC number from this repo should be
+> read as an ML result.** The work worth looking at is the transport:
+> Kafka → consumer → Redis Streams → Prometheus, one decision contract across
+> three channels.
 
 ---
 
@@ -147,9 +155,11 @@ make dev-consumer     # Kafka → scorer → Redis Stream
 
 ```bash
 make train            # writes models/<ts>/model.joblib + registry entry
-make eval             # PR-AUC, ROC-AUC, precision@k
+make eval             # PR-AUC, ROC-AUC, precision@k — on the synthetic corpus
 make drift            # PSI + JS divergence report
 ```
+
+`make eval` prints to stdout; no evaluation output is committed to this repo.
 
 ---
 
@@ -195,8 +205,26 @@ the number.
 
 ---
 
+## Limitations
+
+- **The data is synthetic and self-generated.** Both training and evaluation use
+  `evaluation/datasets/synth_v2.jsonl` (3 000 balanced rows). There is no
+  held-out set from a different distribution and no real-world labels.
+- **The model is a logistic regression**, deliberately. The engineering here is
+  the streaming path and the decision contract, not the classifier.
+- **Class balance is unrealistic.** Real fraud is heavily imbalanced; a balanced
+  corpus removes the hardest part of the problem.
+- **The benchmark numbers that exist are latency, not quality.** Nothing in this
+  repo measures detection performance on real traffic.
+- **Alerting is fire-and-forget.** Redis Streams has no consumer-group
+  acknowledgement wired up yet.
+
+---
+
 ## Roadmap
 
+- Evaluate on a public labelled dataset (IEEE-CIS, Sparkov) and commit the
+  metrics artifact — the missing piece that would make this an ML result.
 - Go high-performance consumer (shared-nothing worker pool).
 - Flink / Spark Structured Streaming with stateful windows.
 - Online/offline feature store with backfill.
